@@ -124,7 +124,7 @@ jobs:
         run: |
           go version
           mkdir -p bin/
-          go build -o bin/terraform-provider-openvswitch
+          go build -buildvcs=false -o bin/terraform-provider-openvswitch
           # Make sure the provider binary is executable
           chmod +x bin/terraform-provider-openvswitch
         timeout-minutes: 5
