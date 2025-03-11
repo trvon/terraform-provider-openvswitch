@@ -35,7 +35,7 @@ func resourceBridgeCreate(d *schema.ResourceData, m interface{}) error {
 	if err := c.VSwitch.AddBridge(bridge); err != nil {
 		return err
 	}
-	
+
 	return c.VSwitch.Set.Bridge(bridge, bridge_options)
 }
 

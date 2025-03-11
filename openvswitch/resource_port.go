@@ -100,16 +100,16 @@ func resourcePortCreate(d *schema.ResourceData, m interface{}) error {
 		log.Print(err)
 		// Continue even if there's an error, as the tap device might already exist
 	}
-	
+
 	if err := c.VSwitch.AddPort(bridge, port); err != nil {
 		return err
 	}
-	
+
 	if err := c.OpenFlow.ModPort(bridge, port, GetPortAction(action)); err != nil {
 		log.Print(err)
 		// Continue even if ModPort fails
 	}
-	
+
 	return nil
 }
 
@@ -142,11 +142,11 @@ func resourcePortDelete(d *schema.ResourceData, m interface{}) error {
 		log.Print(err)
 		// Continue even if there's an error, as we still want to try to delete the port
 	}
-	
+
 	if err := c.VSwitch.DeletePort(bridge, port); err != nil {
 		log.Print(err)
 		return err
 	}
-	
+
 	return nil
 }
