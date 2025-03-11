@@ -148,7 +148,7 @@ jobs:
           cd examples/sample-bridge
           # Use dev override configuration
           export TF_CLI_CONFIG_FILE="$(pwd)/terraform.tfrc"
-          terraform init
+          # Skip init with dev overrides since the provider isn't published
           terraform validate
           terraform plan
         timeout-minutes: 5
@@ -165,7 +165,7 @@ jobs:
           cd examples/opentofu-sample
           # Use dev override configuration - works for OpenTofu too
           export TF_CLI_CONFIG_FILE="$(pwd)/terraform.tfrc"
-          tofu init
+          # Skip init with dev overrides since the provider isn't published
           tofu validate
           tofu plan
         timeout-minutes: 5
