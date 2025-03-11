@@ -1,7 +1,8 @@
 terraform {
   required_providers {
     openvswitch = {
-      source = "trevon/openvswitch"
+      source  = "trevon/openvswitch"
+      version = "0.1.0"
     }
   }
 }

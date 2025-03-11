@@ -123,11 +123,10 @@ jobs:
       - name: Build provider
         run: |
           go version
-          make build
-          mkdir -p ~/.terraform.d/plugins/
-          mkdir -p ~/.tofu.d/plugins/
-          cp $(go env GOPATH)/bin/terraform-provider-openvswitch ~/.terraform.d/plugins/
-          cp $(go env GOPATH)/bin/terraform-provider-openvswitch ~/.tofu.d/plugins/
+          mkdir -p bin/
+          go build -o bin/terraform-provider-openvswitch
+          # Make sure the provider binary is executable
+          chmod +x bin/terraform-provider-openvswitch
         timeout-minutes: 5
 
       - name: Install Terraform
@@ -147,6 +146,8 @@ jobs:
       - name: Test with example configuration
         run: |
           cd examples/sample-bridge
+          # Use dev override configuration
+          export TF_CLI_CONFIG_FILE="$(pwd)/terraform.tfrc"
           terraform init
           terraform validate
           terraform plan
@@ -162,6 +163,8 @@ jobs:
       - name: Test with OpenTofu
         run: |
           cd examples/opentofu-sample
+          # Use dev override configuration - works for OpenTofu too
+          export TF_CLI_CONFIG_FILE="$(pwd)/terraform.tfrc"
           tofu init
           tofu validate
           tofu plan

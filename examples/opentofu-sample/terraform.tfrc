@@ -1,0 +1,6 @@
+provider_installation {
+  dev_overrides {
+    "trevon/openvswitch" = "../../bin/"
+  }
+  direct {}
+}

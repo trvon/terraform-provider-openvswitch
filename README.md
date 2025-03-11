@@ -42,19 +42,18 @@ Requirements:
 
 Clone this repo, and then do the following:
 
-### For Terraform
-
 ```
-$ make
-$ cp ${GOPATH}/bin/terraform-provider-openvswitch ~/.terraform.d/plugins/
+$ make build
 ```
 
-### For OpenTofu
+### Development Setup
 
-```
-$ make
-$ cp ${GOPATH}/bin/terraform-provider-openvswitch ~/.tofu.d/plugins/
-```
+See the [Development Guide](./DEVELOPMENT.md) for detailed instructions on how to set up your development environment and use the provider locally before it's published to the Terraform Registry.
+
+This includes:
+- Using development overrides
+- Setting up CLI configuration
+- Linking the provider for local testing
 
 ## Running Tests
 
