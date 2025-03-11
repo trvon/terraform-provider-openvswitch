@@ -4,7 +4,7 @@ PKG_NAME=openvswitch
 default: build
 
 build: fmtcheck
-	go install
+	go install -buildvcs=false
 
 # The same binary can be used for both Terraform and OpenTofu
 build-all: build
