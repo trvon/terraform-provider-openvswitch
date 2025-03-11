@@ -133,14 +133,24 @@ func resourcePortRead(d *schema.ResourceData, m interface{}) error {
 		port = parts[1]
 	}
 
-	// Check if port exists
-	exists, err := c.VSwitch.PortExists(bridge, port)
+	// Check if port exists by getting the bridge ports and checking if our port is in the list
+	ports, err := c.VSwitch.ListPorts(bridge)
 	if err != nil {
 		log.Print(err)
-		return err
+		// If we can't list ports, the bridge might not exist
+		d.SetId("")
+		return nil
 	}
 
-	if !exists {
+	portExists := false
+	for _, p := range ports {
+		if p == port {
+			portExists = true
+			break
+		}
+	}
+
+	if !portExists {
 		// Port doesn't exist, remove from state
 		d.SetId("")
 		return nil
@@ -149,6 +159,16 @@ func resourcePortRead(d *schema.ResourceData, m interface{}) error {
 	// Port exists, set attributes
 	d.Set("name", port)
 	d.Set("bridge_id", bridge)
+
+	// Keep the action and ofversion attributes in the state if they're already there
+	// This ensures we don't lose attributes after apply
+	if action, ok := d.GetOk("action"); ok {
+		d.Set("action", action)
+	}
+	if ofversion, ok := d.GetOk("ofversion"); ok {
+		d.Set("ofversion", ofversion)
+	}
+
 	return nil
 }
 

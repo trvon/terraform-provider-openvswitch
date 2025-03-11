@@ -48,13 +48,10 @@ func resourceBridgeCreate(d *schema.ResourceData, m interface{}) error {
 func resourceBridgeRead(d *schema.ResourceData, m interface{}) error {
 	bridge := d.Id()
 
-	// Check if bridge exists
-	exists, err := c.VSwitch.BridgeExists(bridge)
+	// Check if bridge exists by attempting to list its ports
+	// If bridge doesn't exist, this will return an error
+	_, err := c.VSwitch.ListPorts(bridge)
 	if err != nil {
-		return err
-	}
-
-	if !exists {
 		// Bridge doesn't exist, remove from state
 		d.SetId("")
 		return nil
@@ -62,6 +59,13 @@ func resourceBridgeRead(d *schema.ResourceData, m interface{}) error {
 
 	// Bridge exists, set attributes
 	d.Set("name", bridge)
+
+	// Keep the ofversion attribute in the state if it's already there
+	// This ensures we don't lose attributes after apply
+	if ofversion, ok := d.GetOk("ofversion"); ok {
+		d.Set("ofversion", ofversion)
+	}
+
 	return nil
 }
 
