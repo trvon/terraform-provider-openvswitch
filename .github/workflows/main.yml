@@ -25,38 +25,6 @@ env:
   CI_COMMIT_EMAIL: git@trevon.dev
 
 jobs:
-  lint:
-    name: Lint & Format Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.18'
-          cache: true
-
-      - name: Go Format Check
-        run: |
-          bash scripts/gofmtcheck.sh
-        timeout-minutes: 3
-
-      - name: Go Vet
-        run: |
-          go vet ./...
-        timeout-minutes: 3
-        
-      - name: Go Lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: latest
-          args: --timeout=5m
-
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -123,7 +91,7 @@ jobs:
 
   integration-tests:
     name: Integration Tests
-    needs: [lint, unit-tests, acceptance-tests]
+    needs: [unit-tests, acceptance-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:

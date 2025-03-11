@@ -3,7 +3,6 @@
 
 This provider manages local Open vSwitch bridges and ports. Compatible with both Terraform and OpenTofu.
 
-
 ## Sample usage
 
 From [examples/sample-bridge](./examples/sample-bridge/):
