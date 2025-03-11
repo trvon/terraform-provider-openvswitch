@@ -1,7 +1,7 @@
-# Terraform provider for Open vSwitch
+# Terraform/OpenTofu provider for Open vSwitch
 [![release](https://github.com/trvon/terraform-provider-openvswitch/actions/workflows/release.yml/badge.svg)](https://github.com/trvon/terraform-provider-openvswitch/actions/workflows/release.yml)
 
-This Terraform provider manages local Open vSwitch bridges and ports.
+This provider manages local Open vSwitch bridges and ports. Compatible with both Terraform and OpenTofu.
 
 
 ## Sample usage
@@ -12,9 +12,9 @@ From [examples/sample-bridge](./examples/sample-bridge/):
 provider "openvswitch" {}
 
 resource "openvswitch_bridge" "sample_bridge" {
-  name = "testbr0
-  // Optional Parameters
-  // OpenFlow10, OpenFlow11, OpenFlow12, OpenFlow14, OpenFlow15
+  name = "testbr0"
+  # Optional Parameters
+  # OpenFlow10, OpenFlow11, OpenFlow12, OpenFlow14, OpenFlow15
   ofversion = "OpenFlow13"
 }
 
@@ -22,9 +22,9 @@ resource "openvswitch_port" "sample_port" {
   count     = 2
   name      = "p${count.index}"
   ofversion = "OpenFlow13"
-  bridge_id = openvswitch_bridge.sample_bridge.
-  // Optional Field
-  action	= "up"
+  bridge_id = openvswitch_bridge.sample_bridge.name
+  # Optional Field
+  action    = "up"
 }
 ```
 
@@ -36,13 +36,62 @@ resource "openvswitch_port" "sample_port" {
 
 Requirements:
 
-* Go 1.15.x or later
+* Go 1.18.x or later
 * GNU Make
-* Terraform v0.12.* (This doesn't work on v0.13 yet)
+* Terraform v0.12 or later
+* OpenTofu v1.6.0 or later
 
-Clone this repo, and then do the fhe following:
+Clone this repo, and then do the following:
+
+### For Terraform
 
 ```
 $ make
 $ cp ${GOPATH}/bin/terraform-provider-openvswitch ~/.terraform.d/plugins/
 ```
+
+### For OpenTofu
+
+```
+$ make
+$ cp ${GOPATH}/bin/terraform-provider-openvswitch ~/.tofu.d/plugins/
+```
+
+## Running Tests
+
+To run the unit tests:
+
+```
+$ go test ./...
+```
+
+The acceptance tests require:
+- OpenVSwitch installed
+- Root privileges or sudo
+
+To run the acceptance tests:
+
+```
+$ sudo -E TF_ACC=1 go test ./openvswitch -v
+```
+
+Or use the Makefile target:
+
+```
+$ sudo -E make testacc
+```
+
+## Continuous Integration
+
+This project uses GitHub Actions for CI/CD:
+
+1. **Tests Workflow (`tests.yml`)**: Runs on every push and pull request to master
+   - Unit tests in standard environment
+   - Acceptance tests in OpenVSwitch container
+   - Integration tests with both Terraform and OpenTofu
+
+2. **Release Workflow (`release.yml`)**: Triggered manually with a version parameter
+   - First runs all tests from the tests workflow
+   - Creates GitHub release and publishes provider to Terraform Registry
+
+The test workflow uses a custom container with OpenVSwitch installed to ensure tests have the necessary environment.

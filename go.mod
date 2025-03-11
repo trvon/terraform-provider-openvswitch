@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/digitalocean/go-openvswitch v0.0.0-20230210190010-977d98586f70
 	github.com/hashicorp/terraform v0.12.17
+	github.com/opentofu/opentofu v1.6.0
 )
 
 require (

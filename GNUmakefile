@@ -9,6 +9,9 @@ build: fmtcheck
 test: fmtcheck
 	go test $(TEST) -parallel=4
 
+testacc:
+	TF_ACC=1 go test ./$(PKG_NAME) -v $(TESTARGS) -timeout 120m
+
 fmt:
 	@echo "==> Fixing source code with gofmt..."
 	gofmt -s -w ./$(PKG_NAME)
@@ -37,4 +40,4 @@ tools:
 	GO111MODULE=on go install github.com/bflad/tfproviderlint/cmd/tfproviderlint
 	GO111MODULE=on go install github.com/golangci/golangci-lint/cmd/golangci-lint
 
-.PHONY: build fmt fmtcheck lint test tools vet
+.PHONY: build fmt fmtcheck lint test testacc tools vet
