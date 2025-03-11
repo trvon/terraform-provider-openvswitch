@@ -1,0 +1,192 @@
+name: tests
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+# Limit concurrent runs to conserve resources and avoid conflicts
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Go Format Check
+        run: |
+          bash scripts/gofmtcheck.sh
+        timeout-minutes: 3
+
+      - name: Go Vet
+        run: |
+          go vet ./...
+        timeout-minutes: 3
+        
+      - name: Go Lint
+        uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
+        with:
+          version: latest
+          args: --timeout=5m
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Unit Tests
+        run: |
+          go test ./... -v -timeout=120s
+        timeout-minutes: 5
+
+  acceptance-tests:
+    name: Acceptance Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: openvswitch/ovs:latest
+      volumes:
+        - /lib/modules:/lib/modules
+      options: --cap-add=NET_ADMIN --privileged
+    
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y git make curl sudo iproute2
+        timeout-minutes: 5
+
+      - name: Checkout
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Start Open vSwitch service
+        run: |
+          /usr/share/openvswitch/scripts/ovs-ctl start
+          ovs-vsctl show
+        timeout-minutes: 2
+
+      - name: Run Acceptance Tests
+        env:
+          TF_ACC: 1
+        run: |
+          go test ./openvswitch -v -timeout=300s
+        timeout-minutes: 10
+
+  integration-tests:
+    name: Integration Tests
+    needs: [lint, unit-tests, acceptance-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: openvswitch/ovs:latest
+      volumes:
+        - /lib/modules:/lib/modules
+      options: --cap-add=NET_ADMIN --privileged
+    
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y git make curl sudo iproute2 wget unzip
+        timeout-minutes: 5
+
+      - name: Checkout
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Build provider
+        run: |
+          make build
+          mkdir -p ~/.terraform.d/plugins/
+          mkdir -p ~/.tofu.d/plugins/
+          cp ${GOPATH}/bin/terraform-provider-openvswitch ~/.terraform.d/plugins/
+          cp ${GOPATH}/bin/terraform-provider-openvswitch ~/.tofu.d/plugins/
+        timeout-minutes: 5
+
+      - name: Install Terraform
+        run: |
+          wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list
+          apt update && apt install -y terraform
+        timeout-minutes: 5
+
+      - name: Start Open vSwitch service
+        run: |
+          /usr/share/openvswitch/scripts/ovs-ctl start
+          ovs-vsctl show
+        timeout-minutes: 2
+
+      - name: Test with example configuration
+        run: |
+          cd examples/sample-bridge
+          terraform init
+          terraform validate
+          terraform plan
+        timeout-minutes: 5
+
+      - name: Install OpenTofu
+        run: |
+          wget https://github.com/opentofu/opentofu/releases/download/v1.6.0/tofu_1.6.0_linux_amd64.zip
+          unzip tofu_1.6.0_linux_amd64.zip
+          mv tofu /usr/local/bin/
+        timeout-minutes: 5
+
+      - name: Test with OpenTofu
+        run: |
+          cd examples/opentofu-sample
+          tofu init
+          tofu validate
+          tofu plan
+        timeout-minutes: 5
+
+  # This job ensures tests run before the release workflow
+  test-success:
+    name: Test Success
+    needs: [lint, unit-tests, acceptance-tests, integration-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Test Success
+        run: echo "All tests passed"
+        timeout-minutes: 1

@@ -7,7 +7,6 @@ import (
 
 	"github.com/digitalocean/go-openvswitch/ovs"
 	"github.com/hashicorp/terraform/helper/schema"
-	otfschema "github.com/opentofu/opentofu/helper/schema"
 )
 
 // OVS Connection
@@ -123,85 +122,6 @@ func resourcePortUpdate(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourcePortDelete(d *schema.ResourceData, m interface{}) error {
-	port := d.Get("name").(string)
-	bridge := d.Get("bridge_id").(string)
-
-	// Creates tap device for ovs port, this is not persistent
-	cmd := exec.Command("sudo", "/sbin/ip", "tuntap", "del", "dev", port, "mode", "tap")
-	err := cmd.Run()
-	log.Print(err)
-	err = c.VSwitch.DeletePort(bridge, port)
-	log.Print(err)
-	return err
-}
-
-// OpenTofu resource implementation
-func resourcePortOTF() *otfschema.Resource {
-	return &otfschema.Resource{
-		Create: resourcePortCreateOTF,
-		Read:   resourcePortReadOTF,
-		Update: resourcePortUpdateOTF,
-		Delete: resourcePortDeleteOTF,
-
-		Schema: map[string]*otfschema.Schema{
-			"name": {
-				Type:     otfschema.TypeString,
-				Required: true,
-			},
-
-			"bridge_id": {
-				Type:     otfschema.TypeString,
-				Required: true,
-			},
-
-			"action": {
-				Type:     otfschema.TypeString,
-				Optional: true,
-				Default:  "up",
-			},
-			"ofversion": {
-				Type:     otfschema.TypeString,
-				Optional: true,
-				Default:  "OpenFlow13",
-			},
-		},
-	}
-}
-
-func resourcePortCreateOTF(d *otfschema.ResourceData, m interface{}) error {
-	port := d.Get("name").(string)
-	bridge := d.Get("bridge_id").(string)
-	action := d.Get("action").(string)
-
-	// Creates tap device for ovs port, this is not persistent
-	user, _ := user.Current()
-	cmd := exec.Command("sudo", "/sbin/ip", "tuntap", "add", "dev", port, "mode", "tap", "user", user.Username)
-	err := cmd.Run()
-	log.Print(err)
-	err = c.VSwitch.AddPort(bridge, port)
-	_ = c.OpenFlow.ModPort(bridge, port, GetPortAction(action))
-	log.Print(err)
-	return err
-}
-
-func resourcePortReadOTF(d *otfschema.ResourceData, m interface{}) error {
-	port := d.Get("name").(string)
-	bridge := d.Get("bridge_id").(string)
-	_, err := c.OpenFlow.DumpPort(bridge, port)
-	log.Print(err)
-	return err
-}
-
-func resourcePortUpdateOTF(d *otfschema.ResourceData, m interface{}) error {
-	port := d.Get("name").(string)
-	bridge := d.Get("bridge_id").(string)
-	action := d.Get("action").(string)
-	err := c.OpenFlow.ModPort(bridge, port, GetPortAction(action))
-	log.Print(err)
-	return nil
-}
-
-func resourcePortDeleteOTF(d *otfschema.ResourceData, m interface{}) error {
 	port := d.Get("name").(string)
 	bridge := d.Get("bridge_id").(string)
 

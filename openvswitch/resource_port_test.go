@@ -42,14 +42,14 @@ func testAccCheckPortDestroy(s *terraform.State) error {
 
 		portName := rs.Primary.Attributes["name"]
 		bridgeName := rs.Primary.Attributes["bridge_id"]
-		
+
 		// Check if port still exists on the bridge
 		cmd := exec.Command("ovs-vsctl", "list-ports", bridgeName)
 		output, err := cmd.Output()
 		if err == nil && string(output) != "" {
 			return fmt.Errorf("Port %s still exists on bridge %s", portName, bridgeName)
 		}
-		
+
 		// Check if tap device still exists
 		cmd = exec.Command("ip", "link", "show", portName)
 		err = cmd.Run()
@@ -74,14 +74,14 @@ func testAccCheckPortExists(n string) resource.TestCheckFunc {
 
 		portName := rs.Primary.Attributes["name"]
 		bridgeName := rs.Primary.Attributes["bridge_id"]
-		
+
 		// Check if port exists on the bridge
 		cmd := exec.Command("ovs-vsctl", "port-to-br", portName)
 		output, err := cmd.Output()
 		if err != nil || string(output) != bridgeName+"\n" {
 			return fmt.Errorf("Port %s doesn't exist on bridge %s", portName, bridgeName)
 		}
-		
+
 		return nil
 	}
 }

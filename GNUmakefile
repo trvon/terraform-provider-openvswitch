@@ -6,6 +6,10 @@ default: build
 build: fmtcheck
 	go install
 
+# The same binary can be used for both Terraform and OpenTofu
+build-all: build
+	@echo "Built provider for both Terraform and OpenTofu"
+
 test: fmtcheck
 	go test $(TEST) -parallel=4
 
@@ -40,4 +44,4 @@ tools:
 	GO111MODULE=on go install github.com/bflad/tfproviderlint/cmd/tfproviderlint
 	GO111MODULE=on go install github.com/golangci/golangci-lint/cmd/golangci-lint
 
-.PHONY: build fmt fmtcheck lint test testacc tools vet
+.PHONY: build build-tf build-opentofu build-all fmt fmtcheck lint test test-opentofu testacc testacc-opentofu tools vet

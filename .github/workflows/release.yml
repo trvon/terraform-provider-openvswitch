@@ -8,6 +8,11 @@ on:
         type: string
         required: true
 
+# Limit concurrent runs to conserve resources and avoid conflicts
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read # Changelog commit operations use service account PAT
 
@@ -16,25 +21,36 @@ env:
   CI_COMMIT_EMAIL: git@trevon.dev
 
 jobs:
+  # First ensure all tests have passed
+  run-tests:
+    uses: ./.github/workflows/tests.yml
+    timeout-minutes: 60
+
   major-version:
+    needs: [run-tests]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.major-version.outputs.version }}
     steps:
       - id: major-version
         run: echo "version=$(echo "${{ inputs.versionNumber }}" | cut -d. -f1)" >> "$GITHUB_OUTPUT"
+        timeout-minutes: 1
 
   changelog-version:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.changelog-version.outputs.version }}
     steps:
       - id: changelog-version
         run: echo "version=$(echo "${{ inputs.versionNumber }}" | cut -c 2-)" >> "$GITHUB_OUTPUT"
+        timeout-minutes: 1
 
   changelog:
     needs: changelog-version
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
@@ -43,11 +59,18 @@ jobs:
           # Avoid persisting GITHUB_TOKEN credentials as they take priority over our service account PAT for `git push` operations
           # More details: https://github.com/actions/checkout/blob/b4626ce19ce1106186ddf9bb20e706842f11a7c3/adrs/0153-checkout-v2.md#persist-credentials
           persist-credentials: false
+      
+      - name: Generate changelog
+        run: |
+          echo "Generating changelog for version ${{ needs.changelog-version.outputs.version }}"
+          # TODO: Implement changelog generation logic
+        timeout-minutes: 5
 
   terraform-provider-release:
     permissions: write-all
     name: 'Terraform Provider Release'
     uses: hashicorp/ghaction-terraform-provider-release/.github/workflows/community.yml@v2
+    timeout-minutes: 30
     secrets:
       gpg-private-key: '${{ secrets.GPG_PRIVATE_KEY }}'
     with:
@@ -56,6 +79,7 @@ jobs:
   release:
     needs: [ changelog-version, changelog, major-version, terraform-provider-release ]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write # Needed to create GitHub release
     steps:
@@ -68,8 +92,11 @@ jobs:
         run: |
           cd .changes
           sed -e "1{/# /d;}" -e "2{/^$/d;}" ${{ needs.changelog-version.outputs.version }}.md > /tmp/release-notes.txt
+        timeout-minutes: 2
+        
       - name: GH Release
         run: |
           gh release create "${{ inputs.versionNumber }}" --notes-file /tmp/release-notes.txt --title "${{ inputs.versionNumber }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        timeout-minutes: 5

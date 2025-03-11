@@ -1,32 +1,17 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"strings"
-
-	"github.com/carletes/terraform-provider-openvswitch/openvswitch"
 	"github.com/hashicorp/terraform/plugin"
-	otfplugin "github.com/opentofu/opentofu/plugin"
+	"github.com/trvon/terraform-provider-openvswitch/openvswitch"
 )
 
 func main() {
-	// Check for OpenTofu in the process name
-	isOpenTofu := false
-	for _, arg := range os.Args {
-		if strings.Contains(strings.ToLower(arg), "tofu") {
-			isOpenTofu = true
-			break
-		}
-	}
+	// The binary works for both Terraform and OpenTofu - they use the same plugin interface
+	// To detect if it's being called from OpenTofu, you could look at environment variables
+	// or command line args, but we don't need to do anything differently in this case
 
-	if isOpenTofu {
-		otfplugin.Serve(&otfplugin.ServeOpts{
-			ProviderFunc: openvswitch.ProviderOpenTofu(),
-		})
-	} else {
-		plugin.Serve(&plugin.ServeOpts{
-			ProviderFunc: openvswitch.Provider,
-		})
-	}
+	// Both Terraform and OpenTofu will properly load and use the same provider schema
+	plugin.Serve(&plugin.ServeOpts{
+		ProviderFunc: openvswitch.Provider,
+	})
 }
