@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
-      image: openvswitch/ovs:latest
+      image: gns3/openvswitch:latest
       volumes:
         - /lib/modules:/lib/modules
       options: --cap-add=NET_ADMIN --privileged
@@ -112,7 +112,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
-      image: openvswitch/ovs:latest
+      image: gns3/openvswitch:latest
       volumes:
         - /lib/modules:/lib/modules
       options: --cap-add=NET_ADMIN --privileged
