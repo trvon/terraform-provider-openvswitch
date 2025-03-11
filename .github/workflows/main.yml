@@ -99,18 +99,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.18'
-          cache: true
-
-      - name: Verify Go installation
+        
+      - name: Verify and setup Go
         run: |
           echo "Go binary location: $(which go)"
           go version
           echo "GOPATH: $GOPATH"
+          # Make sure Go binaries are in PATH
+          echo "PATH=$PATH:/usr/local/go/bin:$(go env GOPATH)/bin" >> $GITHUB_ENV
         
       - name: Start Open vSwitch service
         run: |
@@ -148,21 +144,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.18'
-          cache: true
-
-      - name: Verify Go installation
+      - name: Verify and setup Go
         run: |
           echo "Go binary location: $(which go)"
           go version
           echo "GOPATH: $GOPATH"
+          # Make sure Go binaries are in PATH
+          echo "PATH=$PATH:/usr/local/go/bin:$(go env GOPATH)/bin" >> $GITHUB_ENV
 
       - name: Build provider
         run: |
-          export PATH=$PATH:/usr/local/go/bin
           go version
           make build
           mkdir -p ~/.terraform.d/plugins/
