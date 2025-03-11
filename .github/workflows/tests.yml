@@ -78,8 +78,8 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          apt-get update
-          apt-get install -y git make curl sudo iproute2
+          apk update
+          apk add --no-cache git make curl sudo iproute2
         timeout-minutes: 5
 
       - name: Checkout
@@ -120,8 +120,8 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          apt-get update
-          apt-get install -y git make curl sudo iproute2 wget unzip
+          apk update
+          apk add --no-cache git make curl sudo iproute2 wget unzip
         timeout-minutes: 5
 
       - name: Checkout
@@ -146,9 +146,10 @@ jobs:
 
       - name: Install Terraform
         run: |
-          wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
-          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list
-          apt update && apt install -y terraform
+          wget https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip
+          unzip terraform_1.6.0_linux_amd64.zip
+          mv terraform /usr/local/bin/
+          terraform version
         timeout-minutes: 5
 
       - name: Start Open vSwitch service

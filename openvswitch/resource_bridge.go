@@ -30,7 +30,7 @@ func resourceBridge() *schema.Resource {
 func resourceBridgeCreate(d *schema.ResourceData, m interface{}) error {
 	bridge := d.Get("name").(string)
 	ver := []string{d.Get("ofversion").(string)}
-	bridge_options := ovs.BridgeOptions{ver}
+	bridge_options := ovs.BridgeOptions{Protocols: ver}
 
 	err := c.VSwitch.AddBridge(bridge)
 	err = c.VSwitch.Set.Bridge(bridge, bridge_options)
