@@ -36,10 +36,32 @@ func resourceBridgeCreate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	return c.VSwitch.Set.Bridge(bridge, bridge_options)
+	if err := c.VSwitch.Set.Bridge(bridge, bridge_options); err != nil {
+		return err
+	}
+
+	// Set the ID to the bridge name to ensure Terraform can track the resource
+	d.SetId(bridge)
+	return resourceBridgeRead(d, m)
 }
 
 func resourceBridgeRead(d *schema.ResourceData, m interface{}) error {
+	bridge := d.Id()
+
+	// Check if bridge exists
+	exists, err := c.VSwitch.BridgeExists(bridge)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		// Bridge doesn't exist, remove from state
+		d.SetId("")
+		return nil
+	}
+
+	// Bridge exists, set attributes
+	d.Set("name", bridge)
 	return nil
 }
 

@@ -1,9 +1,11 @@
 package openvswitch
 
 import (
+	"fmt"
 	"log"
 	"os/exec"
 	"os/user"
+	"strings"
 
 	"github.com/digitalocean/go-openvswitch/ovs"
 	"github.com/hashicorp/terraform/helper/schema"
@@ -110,15 +112,44 @@ func resourcePortCreate(d *schema.ResourceData, m interface{}) error {
 		// Continue even if ModPort fails
 	}
 
-	return nil
+	// Set the ID using bridge:port format to ensure Terraform can track the resource
+	d.SetId(bridge + ":" + port)
+	return resourcePortRead(d, m)
 }
 
 func resourcePortRead(d *schema.ResourceData, m interface{}) error {
-	port := d.Get("name").(string)
-	bridge := d.Get("bridge_id").(string)
-	_, err := c.OpenFlow.DumpPort(bridge, port)
-	log.Print(err)
-	return err
+	// Use Get directly for first read, or extract from ID for subsequent reads
+	var port, bridge string
+	if d.Id() == "" {
+		port = d.Get("name").(string)
+		bridge = d.Get("bridge_id").(string)
+	} else {
+		// ID format is bridge:port
+		parts := strings.Split(d.Id(), ":")
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid ID format: %s", d.Id())
+		}
+		bridge = parts[0]
+		port = parts[1]
+	}
+
+	// Check if port exists
+	exists, err := c.VSwitch.PortExists(bridge, port)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+
+	if !exists {
+		// Port doesn't exist, remove from state
+		d.SetId("")
+		return nil
+	}
+
+	// Port exists, set attributes
+	d.Set("name", port)
+	d.Set("bridge_id", bridge)
+	return nil
 }
 
 func resourcePortUpdate(d *schema.ResourceData, m interface{}) error {
