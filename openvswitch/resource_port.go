@@ -96,12 +96,21 @@ func resourcePortCreate(d *schema.ResourceData, m interface{}) error {
 	// Creates tap device for ovs port, this is not persistent
 	user, _ := user.Current()
 	cmd := exec.Command("sudo", "/sbin/ip", "tuntap", "add", "dev", port, "mode", "tap", "user", user.Username)
-	err := cmd.Run()
-	log.Print(err)
-	err = c.VSwitch.AddPort(bridge, port)
-	_ = c.OpenFlow.ModPort(bridge, port, GetPortAction(action))
-	log.Print(err)
-	return err
+	if err := cmd.Run(); err != nil {
+		log.Print(err)
+		// Continue even if there's an error, as the tap device might already exist
+	}
+	
+	if err := c.VSwitch.AddPort(bridge, port); err != nil {
+		return err
+	}
+	
+	if err := c.OpenFlow.ModPort(bridge, port, GetPortAction(action)); err != nil {
+		log.Print(err)
+		// Continue even if ModPort fails
+	}
+	
+	return nil
 }
 
 func resourcePortRead(d *schema.ResourceData, m interface{}) error {
@@ -117,19 +126,27 @@ func resourcePortUpdate(d *schema.ResourceData, m interface{}) error {
 	bridge := d.Get("bridge_id").(string)
 	action := d.Get("action").(string)
 	err := c.OpenFlow.ModPort(bridge, port, GetPortAction(action))
-	log.Print(err)
-	return nil
+	if err != nil {
+		log.Print(err)
+	}
+	return err
 }
 
 func resourcePortDelete(d *schema.ResourceData, m interface{}) error {
 	port := d.Get("name").(string)
 	bridge := d.Get("bridge_id").(string)
 
-	// Creates tap device for ovs port, this is not persistent
+	// Deletes tap device for ovs port
 	cmd := exec.Command("sudo", "/sbin/ip", "tuntap", "del", "dev", port, "mode", "tap")
-	err := cmd.Run()
-	log.Print(err)
-	err = c.VSwitch.DeletePort(bridge, port)
-	log.Print(err)
-	return err
+	if err := cmd.Run(); err != nil {
+		log.Print(err)
+		// Continue even if there's an error, as we still want to try to delete the port
+	}
+	
+	if err := c.VSwitch.DeletePort(bridge, port); err != nil {
+		log.Print(err)
+		return err
+	}
+	
+	return nil
 }
