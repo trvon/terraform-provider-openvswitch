@@ -1,3 +1,11 @@
+terraform {
+  required_providers {
+    openvswitch = {
+      source = "trevon/openvswitch"
+    }
+  }
+}
+
 provider "openvswitch" {}
 
 resource "openvswitch_bridge" "sample_bridge" {
