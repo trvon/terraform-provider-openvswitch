@@ -213,7 +213,7 @@ jobs:
           cache: true
 
       - name: Terraform Provider Release
-        uses: hashicorp/ghaction-terraform-provider-release@v2
+        uses: hashicorp/terraform-provider-release@v2
         timeout-minutes: 30
         with:
           setup-go-version-file: 'go.mod'
