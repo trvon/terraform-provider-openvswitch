@@ -1,73 +1,278 @@
 # Development Guide
 
-This guide explains how to set up your development environment for the OpenVSwitch Terraform provider.
+This guide covers local development and testing of the OpenVSwitch Terraform provider.
 
-## Building the Provider
+## Prerequisites
 
-1. Clone the repository
-2. Build the provider using `make build`
-```
+- Go 1.22 or later
+- Open vSwitch installed (`ovs-vsctl --version`)
+- Sudo/root access
+- Terraform 1.6+ or OpenTofu 1.6+
+
+## Quick Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/trvon/terraform-provider-openvswitch.git
+cd terraform-provider-openvswitch
+
+# Install dependencies and build
 make build
+
+# Run tests
+go test ./...
 ```
 
-This will generate the provider binary in the `bin/` directory.
+## Local Development Workflow
 
-## Testing the Provider Locally
+### 1. Development Overrides (Recommended)
 
-### Method 1: Using Development Overrides
-
-Create a `.terraformrc` file (or `.tofurc` for OpenTofu) in your home directory with the following content:
+Create a `~/.terraformrc` (or `~/.tofurc` for OpenTofu):
 
 ```hcl
 provider_installation {
   dev_overrides {
-    "trevon/openvswitch" = "/absolute/path/to/your/terraform-provider-openvswitch/bin"
+    "registry.terraform.io/trvon/openvswitch" = "/path/to/terraform-provider-openvswitch/bin"
   }
   direct {}
 }
 ```
 
-Replace `/absolute/path/to/your` with your actual project path.
+Then build and test:
 
-### Method 2: Using the Terraform CLI Configuration File
+```bash
+make build
+cd examples/sample-bridge
+terraform plan  # Uses your local binary
+```
 
-For specific Terraform configurations, you can create a `terraform.tfrc` file in the same directory as your configuration:
+### 2. Manual Installation
 
-```hcl
-provider_installation {
-  dev_overrides {
-    "trevon/openvswitch" = "/absolute/path/to/your/terraform-provider-openvswitch/bin"
+```bash
+# Build
+make build
+
+# Install to local plugins directory
+mkdir -p ~/.terraform.d/plugins/local/trvon/openvswitch/1.0.0/darwin_arm64
+cp bin/terraform-provider-openvswitch ~/.terraform.d/plugins/local/trvon/openvswitch/1.0.0/darwin_arm64/
+
+# Use in Terraform config
+terraform {
+  required_providers {
+    openvswitch = {
+      source = "local/trvon/openvswitch"
+      version = "1.0.0"
+    }
   }
-  direct {}
 }
 ```
 
-Then export the path to this file:
+Adjust the architecture folder (`darwin_arm64`, `linux_amd64`, etc.) for your system.
+
+## Testing
+
+### Unit Tests
 
 ```bash
-export TF_CLI_CONFIG_FILE="$(pwd)/terraform.tfrc"
+# Run all tests
+go test ./...
+
+# Run with verbose output
+go test -v ./...
+
+# Run specific test
+go test -v -run TestGetPortAction ./openvswitch
 ```
 
-### Method 3: Using the Terraform Provider Registry Protocol (TPRP)
+### Acceptance Tests
 
-For advanced development cycles, you may want to use TPRP which supports features like automatic binary reloading.
-
-1. Install Go, if not already installed.
-2. Set up your project with provider caching:
+Requires Open vSwitch and root access:
 
 ```bash
-mkdir -p ~/.terraform.d/plugins/trevon.dev/trevon/openvswitch/0.1.0/linux_amd64
-ln -s $(pwd)/bin/terraform-provider-openvswitch ~/.terraform.d/plugins/trevon.dev/trevon/openvswitch/0.1.0/linux_amd64/
-```
-
-## Running Tests
-
-```bash
-# Run unit tests
-make test
-
 # Run acceptance tests
-make testacc
+sudo -E TF_ACC=1 go test ./openvswitch -v
+
+# Run specific acceptance test
+sudo -E TF_ACC=1 go test ./openvswitch -v -run TestAccBridge_basic
 ```
 
-Note: Acceptance tests require an actual OpenVSwitch instance and will make real changes.
+### Race Detection
+
+```bash
+go test -race ./...
+```
+
+### Coverage
+
+```bash
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+## Linting
+
+### Install Tools
+
+```bash
+# Install golangci-lint
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# Install govulncheck
+go install golang.org/x/vuln/cmd/govulncheck@latest
+```
+
+### Run Linters
+
+```bash
+# Run all configured linters
+golangci-lint run ./...
+
+# Run go vet
+go vet ./...
+
+# Check formatting
+gofmt -s -l .
+
+# Security scan
+govulncheck ./...
+```
+
+### Fix Issues
+
+```bash
+# Auto-fix formatting
+gofmt -s -w .
+
+# Auto-fix some lint issues
+golangci-lint run --fix ./...
+```
+
+## Build Targets
+
+```bash
+make build        # Build provider binary
+make test         # Run unit tests
+make testacc      # Run acceptance tests (requires sudo)
+make fmt          # Format code
+make fmtcheck     # Check formatting
+make vet          # Run go vet
+make lint         # Run linters (requires golangci-lint)
+```
+
+## Debugging
+
+### Enable Terraform Debug Logging
+
+```bash
+export TF_LOG=DEBUG
+export TF_LOG_PATH=./terraform.log
+terraform apply
+```
+
+### Provider Debug Logging
+
+The provider uses Go's standard `log` package. Logs are output to stderr.
+
+### Debugging with Delve
+
+```bash
+# Build with debug symbols
+go build -gcflags="all=-N -l" -o bin/terraform-provider-openvswitch
+
+# Run with delve
+dlv exec bin/terraform-provider-openvswitch
+```
+
+## Code Organization
+
+```
+.
+├── main.go                          # Provider entry point
+├── openvswitch/                     # Provider implementation
+│   ├── provider.go                  # Provider definition
+│   ├── resource_bridge.go           # Bridge resource
+│   ├── resource_bridge_test.go      # Bridge tests
+│   ├── resource_port.go             # Port resource
+│   ├── resource_port_test.go        # Port tests
+│   └── resource_port_helpers_test.go # Unit tests
+├── examples/                        # Usage examples
+├── .golangci.yml                    # Linter configuration
+└── .github/workflows/main.yml       # CI/CD pipeline
+```
+
+## Making Changes
+
+### Before Submitting a PR
+
+1. **Write Tests**: Add unit or acceptance tests for new features
+2. **Run Tests**: Ensure all tests pass
+   ```bash
+   make build
+   go test ./...
+   sudo -E TF_ACC=1 go test ./openvswitch -v
+   ```
+3. **Run Linters**: Fix all linting issues
+   ```bash
+   golangci-lint run ./...
+   gofmt -s -w .
+   ```
+4. **Update Documentation**: Update README.md if needed
+
+### Code Style
+
+- Follow standard Go conventions
+- Run `gofmt -s` on all files
+- Use meaningful variable and function names
+- Add comments for exported functions
+- Check errors explicitly (no `_` for errors)
+- Use error wrapping with `fmt.Errorf(..., %w, err)`
+
+## CI/CD Pipeline
+
+GitHub Actions runs automatically on push and PR:
+
+1. **Lint Job**: golangci-lint, go vet, gofmt check
+2. **Security Job**: govulncheck, race detector
+3. **Unit Tests**: Standard Go tests with coverage
+4. **Acceptance Tests**: In OVS container with sudo
+5. **Integration Tests**: Matrix with Terraform/OpenTofu versions
+
+All jobs must pass before merging.
+
+## Common Issues
+
+### "ovs-vsctl: command not found"
+
+Install Open vSwitch:
+
+```bash
+# macOS
+brew install openvswitch
+brew services start openvswitch
+
+# Ubuntu/Debian
+sudo apt-get install openvswitch-switch
+
+# RHEL/CentOS
+sudo yum install openvswitch
+```
+
+### Permission Denied
+
+OVS commands require root:
+
+```bash
+# Add your user to sudoers for passwordless sudo (development only)
+echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/$USER
+```
+
+### Tests Skipped
+
+If you see "ovs-vsctl not found, skipping test", install OVS and ensure it's in PATH.
+
+## Resources
+
+- [Terraform Plugin Development](https://developer.hashicorp.com/terraform/plugin)
+- [terraform-plugin-sdk](https://github.com/hashicorp/terraform-plugin-sdk)
+- [Open vSwitch Documentation](https://docs.openvswitch.org/)
+- [Go Testing](https://golang.org/pkg/testing/)

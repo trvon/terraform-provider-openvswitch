@@ -1,95 +1,167 @@
-# Terraform/OpenTofu provider for Open vSwitch
-[![release](https://github.com/trvon/terraform-provider-openvswitch/actions/workflows/release.yml/badge.svg)](https://github.com/trvon/terraform-provider-openvswitch/actions/workflows/release.yml)
+# Terraform OpenVSwitch Provider
 
-This provider manages local Open vSwitch bridges and ports. Compatible with both Terraform and OpenTofu.
+[![CI](https://github.com/trvon/terraform-provider-openvswitch/actions/workflows/main.yml/badge.svg)](https://github.com/trvon/terraform-provider-openvswitch/actions/workflows/main.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/trvon/terraform-provider-openvswitch)](https://goreportcard.com/report/github.com/trvon/terraform-provider-openvswitch)
 
-## Sample usage
+A Terraform provider for managing local Open vSwitch bridges and ports.
 
-From [examples/sample-bridge](./examples/sample-bridge/):
+**✅ Compatible with both Terraform and OpenTofu**
 
-```
+## Features
+
+- Manage OVS bridges with OpenFlow protocol configuration
+- Create and configure ports on bridges
+- Support for tap devices and port actions
+- Input validation for OpenFlow versions and port actions
+- Works with Terraform 1.6+ and OpenTofu 1.6+
+
+## Requirements
+
+- [Go](https://golang.org/doc/install) 1.22 or later
+- [Open vSwitch](https://www.openvswitch.org/) installed and running
+- Root/sudo access (required for `ovs-vsctl`, `ovs-ofctl`, and `ip` commands)
+
+## Quick Start
+
+```hcl
 provider "openvswitch" {}
 
-resource "openvswitch_bridge" "sample_bridge" {
-  name = "testbr0"
-  # Optional Parameters
-  # OpenFlow10, OpenFlow11, OpenFlow12, OpenFlow14, OpenFlow15
-  ofversion = "OpenFlow13"
+resource "openvswitch_bridge" "br0" {
+  name      = "testbr0"
+  ofversion = "OpenFlow13"  # Optional: OpenFlow10-15
 }
 
-resource "openvswitch_port" "sample_port" {
-  count     = 2
-  name      = "p${count.index}"
+resource "openvswitch_port" "port" {
+  name      = "port0"
+  bridge_id = openvswitch_bridge.br0.name
   ofversion = "OpenFlow13"
-  bridge_id = openvswitch_bridge.sample_bridge.name
-  # Optional Field
-  action    = "up"
+  action    = "up"  # Optional: up, down, flood, etc.
 }
 ```
 
-## Important notes
-- The ip, ovs-vsctl, ovs-ofctl commands all require sudo or root access
-- Error handling is currently broken
+## Resources
 
-## Installation from source
+### `openvswitch_bridge`
 
-Requirements:
+Creates and manages an Open vSwitch bridge.
 
-* Go 1.18.x or later
-* GNU Make
-* Terraform v0.12 or later
-* OpenTofu v1.6.0 or later
+**Arguments:**
+- `name` (Required) - Bridge name
+- `ofversion` (Optional) - OpenFlow version: `OpenFlow10`, `OpenFlow11`, `OpenFlow12`, `OpenFlow13` (default), `OpenFlow14`, or `OpenFlow15`
 
-Clone this repo, and then do the following:
+### `openvswitch_port`
 
+Creates and manages a port on an OVS bridge.
+
+**Arguments:**
+- `name` (Required) - Port name
+- `bridge_id` (Required) - Name of the bridge to attach to
+- `ofversion` (Optional) - OpenFlow version (default: `OpenFlow13`)
+- `action` (Optional) - Port action: `up` (default), `down`, `stp`, `no-stp`, `receive`, `no-receive`, `no-receive-stp`, `forward`, `no-forward`, `flood`, `no-flood`, `packet-in`, or `no-packet-in`
+
+## Installation
+
+### From Source
+
+```bash
+git clone https://github.com/trvon/terraform-provider-openvswitch.git
+cd terraform-provider-openvswitch
+make build
 ```
-$ make build
-```
+
+Binary will be created at `bin/terraform-provider-openvswitch`.
 
 ### Development Setup
 
-See the [Development Guide](./DEVELOPMENT.md) for detailed instructions on how to set up your development environment and use the provider locally before it's published to the Terraform Registry.
+For local development and testing, see [DEVELOPMENT.md](./DEVELOPMENT.md).
 
-This includes:
-- Using development overrides
-- Setting up CLI configuration
-- Linking the provider for local testing
+## Testing
 
-## Running Tests
+### Unit Tests
 
-To run the unit tests:
-
-```
-$ go test ./...
+```bash
+go test ./...
 ```
 
-The acceptance tests require:
-- OpenVSwitch installed
-- Root privileges or sudo
+### Acceptance Tests
 
-To run the acceptance tests:
+Requires Open vSwitch and root access:
 
-```
-$ sudo -E TF_ACC=1 go test ./openvswitch -v
+```bash
+sudo -E TF_ACC=1 go test ./openvswitch -v
 ```
 
-Or use the Makefile target:
+Or using Make:
 
+```bash
+sudo -E make testacc
 ```
-$ sudo -E make testacc
+
+### Linting
+
+```bash
+# Install golangci-lint
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# Run linters
+golangci-lint run ./...
 ```
 
-## Continuous Integration
+## CI/CD
 
-This project uses GitHub Actions for CI/CD:
+GitHub Actions runs on every push and PR:
 
-1. **Tests Workflow (`tests.yml`)**: Runs on every push and pull request to master
-   - Unit tests in standard environment
-   - Acceptance tests in OpenVSwitch container
-   - Integration tests with both Terraform and OpenTofu
+- ✅ **Lint** - golangci-lint with 20+ linters, go vet, gofmt
+- ✅ **Security** - govulncheck, race detector
+- ✅ **Unit Tests** - with coverage reporting
+- ✅ **Acceptance Tests** - in OVS container
+- ✅ **Integration Tests** - matrix testing with Terraform 1.6/1.10 and OpenTofu 1.6/1.8
 
-2. **Release Workflow (`release.yml`)**: Triggered manually with a version parameter
-   - First runs all tests from the tests workflow
-   - Creates GitHub release and publishes provider to Terraform Registry
+## OpenTofu Compatibility
 
-The test workflow uses a custom container with OpenVSwitch installed to ensure tests have the necessary environment.
+This provider works seamlessly with both Terraform and OpenTofu using the same binary. The plugin protocol is identical, so no special configuration is needed.
+
+**Tested versions:**
+- Terraform: 1.6.0, 1.10.5
+- OpenTofu: 1.6.0, 1.8.10
+
+## Important Notes
+
+⚠️ **Sudo Required**: All OVS operations require root privileges. Ensure your user can run `sudo` commands.
+
+⚠️ **Tap Devices**: Ports create tap devices that are not persistent across reboots.
+
+## Examples
+
+See the [examples](./examples/) directory for complete working examples:
+- [sample-bridge](./examples/sample-bridge/) - Terraform example
+- [opentofu-sample](./examples/opentofu-sample/) - OpenTofu example
+
+## Contributing
+
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Ensure tests pass: `make build && go test ./...`
+5. Ensure linting passes: `golangci-lint run ./...`
+6. Submit a pull request
+
+## License
+
+Apache License 2.0 - see [LICENSE](LICENSE) for details.
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/trvon/terraform-provider-openvswitch/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/trvon/terraform-provider-openvswitch/discussions)
+
+## Project Status
+
+**Active Development** - The provider is functional and tested. Current focus:
+- ✅ Code quality improvements (completed)
+- ✅ Comprehensive linting and testing (completed)
+- ✅ OpenTofu compatibility verification (completed)
+- 🔄 SDK migration to terraform-plugin-sdk/v2 (planned)
+- 🔄 Expanded test coverage (in progress)

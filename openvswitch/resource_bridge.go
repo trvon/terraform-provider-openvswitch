@@ -1,6 +1,8 @@
 package openvswitch
 
 import (
+	"fmt"
+
 	"github.com/digitalocean/go-openvswitch/ovs"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -15,21 +17,56 @@ func resourceBridge() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "Name of the bridge to create",
 			},
 			"ofversion": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "OpenFlow13",
+				ValidateFunc: func(v interface{}, k string) (warnings []string, errors []error) {
+					value, ok := v.(string)
+					if !ok {
+						errors = append(errors, fmt.Errorf("%q must be a string", k))
+						return warnings, errors
+					}
+					validVersions := []string{
+						"OpenFlow10",
+						"OpenFlow11",
+						"OpenFlow12",
+						"OpenFlow13",
+						"OpenFlow14",
+						"OpenFlow15",
+					}
+					for _, version := range validVersions {
+						if value == version {
+							return nil, nil
+						}
+					}
+					errors = append(errors, fmt.Errorf(
+						"%q must be one of: %v", k, validVersions))
+					return warnings, errors
+				},
+				Description: "OpenFlow protocol version (OpenFlow10, OpenFlow11, OpenFlow12, OpenFlow13, OpenFlow14, or OpenFlow15)",
 			},
 		},
 	}
 }
 
 func resourceBridgeCreate(d *schema.ResourceData, m interface{}) error {
-	bridge := d.Get("name").(string)
-	ver := []string{d.Get("ofversion").(string)}
+	bridge, ok := d.Get("name").(string)
+	if !ok {
+		return fmt.Errorf("name must be a string")
+	}
+
+	ofversion, ok := d.Get("ofversion").(string)
+	if !ok {
+		return fmt.Errorf("ofversion must be a string")
+	}
+
+	ver := []string{ofversion}
 	bridge_options := ovs.BridgeOptions{Protocols: ver}
 
 	if err := c.VSwitch.AddBridge(bridge); err != nil {
@@ -58,12 +95,16 @@ func resourceBridgeRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	// Bridge exists, set attributes
-	d.Set("name", bridge)
+	if err := d.Set("name", bridge); err != nil {
+		return fmt.Errorf("error setting name: %w", err)
+	}
 
 	// Keep the ofversion attribute in the state if it's already there
 	// This ensures we don't lose attributes after apply
 	if ofversion, ok := d.GetOk("ofversion"); ok {
-		d.Set("ofversion", ofversion)
+		if err := d.Set("ofversion", ofversion); err != nil {
+			return fmt.Errorf("error setting ofversion: %w", err)
+		}
 	}
 
 	return nil
@@ -74,6 +115,9 @@ func resourceBridgeUpdate(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceBridgeDelete(d *schema.ResourceData, m interface{}) error {
-	bridge := d.Get("name").(string)
+	bridge, ok := d.Get("name").(string)
+	if !ok {
+		return fmt.Errorf("name must be a string")
+	}
 	return c.VSwitch.DeleteBridge(bridge)
 }

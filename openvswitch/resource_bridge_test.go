@@ -84,7 +84,7 @@ func testAccCheckBridgeExists(n string) resource.TestCheckFunc {
 		cmd := exec.Command("ovs-vsctl", "br-exists", bridgeName)
 		err := cmd.Run()
 		if err != nil {
-			return fmt.Errorf("Error checking bridge %s: %s", bridgeName, err)
+			return fmt.Errorf("Error checking bridge %s: %w", bridgeName, err)
 		}
 
 		return nil

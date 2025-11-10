@@ -35,24 +35,73 @@ func resourcePort() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "Name of the port to create",
 			},
 
 			"bridge_id": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "Name of the bridge to attach the port to",
 			},
 
 			"action": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "up",
+				ValidateFunc: func(v interface{}, k string) (warnings []string, errors []error) {
+					value, ok := v.(string)
+					if !ok {
+						errors = append(errors, fmt.Errorf("%q must be a string", k))
+						return warnings, errors
+					}
+					validActions := []string{
+						"up", "down", "stp", "no-stp", "receive", "no-receive",
+						"no-receive-stp", "forward", "no-forward", "flood",
+						"no-flood", "packet-in", "no-packet-in",
+					}
+					for _, action := range validActions {
+						if value == action {
+							return nil, nil
+						}
+					}
+					errors = append(errors, fmt.Errorf(
+						"%q must be one of: %v", k, validActions))
+					return warnings, errors
+				},
+				Description: "Port action (up, down, stp, no-stp, receive, no-receive, no-receive-stp, forward, no-forward, flood, no-flood, packet-in, or no-packet-in)",
 			},
 			"ofversion": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "OpenFlow13",
+				ValidateFunc: func(v interface{}, k string) (warnings []string, errors []error) {
+					value, ok := v.(string)
+					if !ok {
+						errors = append(errors, fmt.Errorf("%q must be a string", k))
+						return warnings, errors
+					}
+					validVersions := []string{
+						"OpenFlow10",
+						"OpenFlow11",
+						"OpenFlow12",
+						"OpenFlow13",
+						"OpenFlow14",
+						"OpenFlow15",
+					}
+					for _, version := range validVersions {
+						if value == version {
+							return nil, nil
+						}
+					}
+					errors = append(errors, fmt.Errorf(
+						"%q must be one of: %v", k, validVersions))
+					return warnings, errors
+				},
+				Description: "OpenFlow protocol version (OpenFlow10, OpenFlow11, OpenFlow12, OpenFlow13, OpenFlow14, or OpenFlow15)",
 			},
 		},
 	}
@@ -68,11 +117,11 @@ func GetPortAction(action string) ovs.PortAction {
 		return ovs.PortActionSTP
 	case ("no-stp"):
 		return ovs.PortActionNoSTP
-	case ("recieve"):
+	case ("receive"):
 		return ovs.PortActionReceive
-	case ("no-recieve"):
+	case ("no-receive"):
 		return ovs.PortActionNoReceive
-	case ("no-recieve-stp"):
+	case ("no-receive-stp"):
 		return ovs.PortActionReceiveSTP
 	case ("forward"):
 		return ovs.PortActionForward
@@ -91,24 +140,39 @@ func GetPortAction(action string) ovs.PortAction {
 }
 
 func resourcePortCreate(d *schema.ResourceData, m interface{}) error {
-	port := d.Get("name").(string)
-	bridge := d.Get("bridge_id").(string)
-	action := d.Get("action").(string)
+	port, ok := d.Get("name").(string)
+	if !ok {
+		return fmt.Errorf("name must be a string")
+	}
+
+	bridge, ok := d.Get("bridge_id").(string)
+	if !ok {
+		return fmt.Errorf("bridge_id must be a string")
+	}
+
+	action, ok := d.Get("action").(string)
+	if !ok {
+		return fmt.Errorf("action must be a string")
+	}
 
 	// Creates tap device for ovs port, this is not persistent
-	user, _ := user.Current()
-	cmd := exec.Command("sudo", "/sbin/ip", "tuntap", "add", "dev", port, "mode", "tap", "user", user.Username)
+	currentUser, err := user.Current()
+	if err != nil {
+		return fmt.Errorf("error getting current user: %w", err)
+	}
+
+	cmd := exec.Command("sudo", "/sbin/ip", "tuntap", "add", "dev", port, "mode", "tap", "user", currentUser.Username)
 	if err := cmd.Run(); err != nil {
-		log.Print(err)
+		log.Printf("warning: error creating tap device (may already exist): %v", err)
 		// Continue even if there's an error, as the tap device might already exist
 	}
 
 	if err := c.VSwitch.AddPort(bridge, port); err != nil {
-		return err
+		return fmt.Errorf("error adding port to bridge: %w", err)
 	}
 
 	if err := c.OpenFlow.ModPort(bridge, port, GetPortAction(action)); err != nil {
-		log.Print(err)
+		log.Printf("warning: error modifying port action: %v", err)
 		// Continue even if ModPort fails
 	}
 
@@ -121,8 +185,15 @@ func resourcePortRead(d *schema.ResourceData, m interface{}) error {
 	// Use Get directly for first read, or extract from ID for subsequent reads
 	var port, bridge string
 	if d.Id() == "" {
-		port = d.Get("name").(string)
-		bridge = d.Get("bridge_id").(string)
+		var ok bool
+		port, ok = d.Get("name").(string)
+		if !ok {
+			return fmt.Errorf("name must be a string")
+		}
+		bridge, ok = d.Get("bridge_id").(string)
+		if !ok {
+			return fmt.Errorf("bridge_id must be a string")
+		}
 	} else {
 		// ID format is bridge:port
 		parts := strings.Split(d.Id(), ":")
@@ -136,7 +207,7 @@ func resourcePortRead(d *schema.ResourceData, m interface{}) error {
 	// Check if port exists by getting the bridge ports and checking if our port is in the list
 	ports, err := c.VSwitch.ListPorts(bridge)
 	if err != nil {
-		log.Print(err)
+		log.Printf("warning: error listing ports (bridge may not exist): %v", err)
 		// If we can't list ports, the bridge might not exist
 		d.SetId("")
 		return nil
@@ -157,46 +228,72 @@ func resourcePortRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	// Port exists, set attributes
-	d.Set("name", port)
-	d.Set("bridge_id", bridge)
+	if err := d.Set("name", port); err != nil {
+		return fmt.Errorf("error setting name: %w", err)
+	}
+	if err := d.Set("bridge_id", bridge); err != nil {
+		return fmt.Errorf("error setting bridge_id: %w", err)
+	}
 
 	// Keep the action and ofversion attributes in the state if they're already there
 	// This ensures we don't lose attributes after apply
 	if action, ok := d.GetOk("action"); ok {
-		d.Set("action", action)
+		if err := d.Set("action", action); err != nil {
+			return fmt.Errorf("error setting action: %w", err)
+		}
 	}
 	if ofversion, ok := d.GetOk("ofversion"); ok {
-		d.Set("ofversion", ofversion)
+		if err := d.Set("ofversion", ofversion); err != nil {
+			return fmt.Errorf("error setting ofversion: %w", err)
+		}
 	}
 
 	return nil
 }
 
 func resourcePortUpdate(d *schema.ResourceData, m interface{}) error {
-	port := d.Get("name").(string)
-	bridge := d.Get("bridge_id").(string)
-	action := d.Get("action").(string)
+	port, ok := d.Get("name").(string)
+	if !ok {
+		return fmt.Errorf("name must be a string")
+	}
+
+	bridge, ok := d.Get("bridge_id").(string)
+	if !ok {
+		return fmt.Errorf("bridge_id must be a string")
+	}
+
+	action, ok := d.Get("action").(string)
+	if !ok {
+		return fmt.Errorf("action must be a string")
+	}
+
 	err := c.OpenFlow.ModPort(bridge, port, GetPortAction(action))
 	if err != nil {
-		log.Print(err)
+		return fmt.Errorf("error modifying port action: %w", err)
 	}
-	return err
+	return nil
 }
 
 func resourcePortDelete(d *schema.ResourceData, m interface{}) error {
-	port := d.Get("name").(string)
-	bridge := d.Get("bridge_id").(string)
+	port, ok := d.Get("name").(string)
+	if !ok {
+		return fmt.Errorf("name must be a string")
+	}
+
+	bridge, ok := d.Get("bridge_id").(string)
+	if !ok {
+		return fmt.Errorf("bridge_id must be a string")
+	}
 
 	// Deletes tap device for ovs port
 	cmd := exec.Command("sudo", "/sbin/ip", "tuntap", "del", "dev", port, "mode", "tap")
 	if err := cmd.Run(); err != nil {
-		log.Print(err)
+		log.Printf("warning: error deleting tap device: %v", err)
 		// Continue even if there's an error, as we still want to try to delete the port
 	}
 
 	if err := c.VSwitch.DeletePort(bridge, port); err != nil {
-		log.Print(err)
-		return err
+		return fmt.Errorf("error deleting port from bridge: %w", err)
 	}
 
 	return nil
