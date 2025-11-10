@@ -264,16 +264,12 @@ jobs:
           echo "CHANGELOG_VERSION=$(echo $VERSION | cut -c 2-)" >> $GITHUB_OUTPUT
         timeout-minutes: 1
 
-      - name: Generate changelog
+      - name: Create release tag
         run: |
-          echo "Generating changelog for version ${{ steps.version.outputs.CHANGELOG_VERSION }}"
-          # TODO: Implement changelog generation logic
-          mkdir -p .changes
-          echo "# ${{ steps.version.outputs.CHANGELOG_VERSION }}" > .changes/${{ steps.version.outputs.CHANGELOG_VERSION }}.md
-          echo "" >> .changes/${{ steps.version.outputs.CHANGELOG_VERSION }}.md
-          echo "## Changes" >> .changes/${{ steps.version.outputs.CHANGELOG_VERSION }}.md
-          echo "* Release version ${{ github.event.inputs.versionNumber }}" >> .changes/${{ steps.version.outputs.CHANGELOG_VERSION }}.md
-        timeout-minutes: 5
+          git config user.name "${{ env.CI_COMMIT_AUTHOR }}"
+          git config user.email "${{ env.CI_COMMIT_EMAIL }}"
+          git tag -a ${{ github.event.inputs.versionNumber }} -m "Release ${{ github.event.inputs.versionNumber }}"
+        timeout-minutes: 1
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -281,21 +277,21 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: 'Terraform Provider Release'
-        uses: hashicorp/ghaction-terraform-provider-release/.github/workflows/community.yml@v4
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        if: env.GPG_PRIVATE_KEY != ''
         with:
-          gpg-private-key: '${{ secrets.GPG_PRIVATE_KEY }}'
-          setup-go-version-file: 'go.mod'
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
 
-      - name: Generate Release Notes
-        run: |
-          cd .changes
-          sed -e "1{/# /d;}" -e "2{/^$/d;}" ${{ steps.version.outputs.CHANGELOG_VERSION }}.md > /tmp/release-notes.txt
-        timeout-minutes: 2
-
-      - name: GH Release
-        run: |
-          gh release create "${{ github.event.inputs.versionNumber }}" --notes-file /tmp/release-notes.txt --title "${{ github.event.inputs.versionNumber }}"
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          version: latest
+          args: release --clean --release-notes=CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        timeout-minutes: 5
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
