@@ -152,16 +152,3 @@ Contributions welcome! Please:
 
 Apache License 2.0 - see [LICENSE](LICENSE) for details.
 
-## Support
-
-- **Issues**: [GitHub Issues](https://github.com/trvon/terraform-provider-openvswitch/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/trvon/terraform-provider-openvswitch/discussions)
-
-## Project Status
-
-**Active Development** - The provider is functional and tested. Current focus:
-- ✅ Code quality improvements (completed)
-- ✅ Comprehensive linting and testing (completed)
-- ✅ OpenTofu compatibility verification (completed)
-- 🔄 SDK migration to terraform-plugin-sdk/v2 (planned)
-- 🔄 Expanded test coverage (in progress)
