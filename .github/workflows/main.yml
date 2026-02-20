@@ -109,6 +109,9 @@ jobs:
   acceptance-tests:
     name: Acceptance Tests
     needs: [lint]
+    # act runs on the local machine's Docker engine. On arm64 hosts, the
+    # gns3/openvswitch container image is not available, so skip these jobs.
+    if: ${{ github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
@@ -153,6 +156,8 @@ jobs:
   integration-tests:
     name: Integration Tests
     needs: [unit-tests, acceptance-tests, security]
+    # See acceptance-tests for why we skip under act.
+    if: ${{ github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -213,7 +218,9 @@ jobs:
           cd examples/sample-bridge
           # Use dev override configuration
           export TF_CLI_CONFIG_FILE="$(pwd)/terraform.tfrc"
-          # Skip init with dev overrides since the provider isn't published
+          # Build a local filesystem mirror so init can install the provider.
+          ../../scripts/make-provider-mirror.sh 0.0.1
+          terraform init -input=false
           terraform validate
           terraform plan
         timeout-minutes: 5
@@ -231,7 +238,9 @@ jobs:
           cd examples/opentofu-sample
           # Use dev override configuration - works for OpenTofu too
           export TF_CLI_CONFIG_FILE="$(pwd)/terraform.tfrc"
-          # Skip init with dev overrides since the provider isn't published
+          # Build a local filesystem mirror so init can install the provider.
+          ../../scripts/make-provider-mirror.sh 0.0.1
+          tofu init -input=false
           tofu validate
           tofu plan
         timeout-minutes: 5
