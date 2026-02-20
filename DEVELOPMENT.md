@@ -25,20 +25,20 @@ go test ./...
 
 ## Local Development Workflow
 
-### 1. Development Overrides (Recommended)
+### 1. Development Overrides
 
 Create a `~/.terraformrc` (or `~/.tofurc` for OpenTofu):
 
 ```hcl
 provider_installation {
   dev_overrides {
-    "registry.terraform.io/trvon/openvswitch" = "/path/to/terraform-provider-openvswitch/bin"
+    "trvon/openvswitch" = "/path/to/terraform-provider-openvswitch/bin"
   }
   direct {}
 }
 ```
 
-Then build and test:
+Then build and test (note: `init` still queries the registry for version metadata):
 
 ```bash
 make build

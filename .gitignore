@@ -1,2 +1,17 @@
 
 dist/
+
+# local build/test artifacts
+bin/
+.tools/
+scratch/
+.provider-mirror/
+
+# Terraform/OpenTofu working dirs and state
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfstate.*
+crash.log
+*.log

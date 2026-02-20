@@ -21,9 +21,22 @@ A Terraform provider for managing local Open vSwitch bridges and ports.
 - [Open vSwitch](https://www.openvswitch.org/) installed and running
 - Root/sudo access (required for `ovs-vsctl`, `ovs-ofctl`, and `ip` commands)
 
+## Provider Availability
+
+This provider is not currently published to the Terraform Registry or the OpenTofu Registry. `terraform init` / `tofu init` cannot download it by `source` alone.
+
 ## Quick Start
 
 ```hcl
+terraform {
+  required_providers {
+    openvswitch = {
+      source  = "trvon/openvswitch"
+      version = "0.0.1"
+    }
+  }
+}
+
 provider "openvswitch" {}
 
 resource "openvswitch_bridge" "br0" {
@@ -38,6 +51,17 @@ resource "openvswitch_port" "port" {
   action    = "up"  # Optional: up, down, flood, etc.
 }
 ```
+
+## Local Installation
+
+Build and create a repo-local filesystem mirror:
+
+```bash
+make build
+./scripts/make-provider-mirror.sh 0.0.1
+```
+
+This writes `.provider-mirror/` (ignored by git). The examples are configured to use it via `TF_CLI_CONFIG_FILE=./terraform.tfrc`.
 
 ## Resources
 
@@ -137,6 +161,19 @@ See the [examples](./examples/) directory for complete working examples:
 - [sample-bridge](./examples/sample-bridge/) - Terraform example
 - [opentofu-sample](./examples/opentofu-sample/) - OpenTofu example
 
+Note: until this provider is published in the registries:
+
+```bash
+make build
+./scripts/make-provider-mirror.sh 0.0.1
+
+cd examples/sample-bridge
+TF_CLI_CONFIG_FILE=./terraform.tfrc terraform init
+
+cd ../opentofu-sample
+TF_CLI_CONFIG_FILE=./terraform.tfrc tofu init
+```
+
 ## Contributing
 
 Contributions welcome! Please:
@@ -151,4 +188,3 @@ Contributions welcome! Please:
 ## License
 
 Apache License 2.0 - see [LICENSE](LICENSE) for details.
-

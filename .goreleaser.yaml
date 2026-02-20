@@ -6,6 +6,8 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
+version: 2
+
 before:
   hooks:
     # You may remove this if you don't use go modules.
@@ -16,6 +18,7 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
+    binary: terraform-provider-openvswitch
     goos:
       - linux
       - windows
@@ -28,26 +31,31 @@ builds:
 
     ignore:
       - goos: linux
-        goarch: 386
+        goarch: "386"
       - goos: linux
         goarch: arm
       - goos: windows
         goarch: arm
 
 archives:
-  - format: tar.gz
-    # this name template makes the OS and Arch compatible with the results of `uname`.
+  - formats: zip
+    # Terraform/OpenTofu provider install expects a zip.
     name_template: >-
-      {{ .ProjectName }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
+      terraform-provider-openvswitch_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}amd64
+      {{- else if eq .Arch "arm64" }}arm64
+      {{- else if eq .Arch "arm" }}arm
       {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
-    # use zip for windows archives
-    format_overrides:
-      - goos: windows
-        format: zip
+
+    files:
+      - none*
+
+    wrap_in_directory: false
+
+checksum:
+  name_template: "checksums.txt"
 
 changelog:
   sort: asc
