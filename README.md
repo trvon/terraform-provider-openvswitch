@@ -5,8 +5,6 @@
 
 A Terraform provider for managing local Open vSwitch bridges and ports.
 
-**✅ Compatible with both Terraform and OpenTofu**
-
 ## Features
 
 - Manage OVS bridges with OpenFlow protocol configuration
@@ -130,30 +128,6 @@ go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 # Run linters
 golangci-lint run ./...
 ```
-
-## CI/CD
-
-GitHub Actions runs on every push and PR:
-
-- ✅ **Lint** - golangci-lint with 20+ linters, go vet, gofmt
-- ✅ **Security** - govulncheck, race detector
-- ✅ **Unit Tests** - with coverage reporting
-- ✅ **Acceptance Tests** - in OVS container
-- ✅ **Integration Tests** - matrix testing with Terraform 1.6/1.10 and OpenTofu 1.6/1.8
-
-## OpenTofu Compatibility
-
-This provider works seamlessly with both Terraform and OpenTofu using the same binary. The plugin protocol is identical, so no special configuration is needed.
-
-**Tested versions:**
-- Terraform: 1.6.0, 1.10.5
-- OpenTofu: 1.6.0, 1.8.10
-
-## Important Notes
-
-⚠️ **Sudo Required**: All OVS operations require root privileges. Ensure your user can run `sudo` commands.
-
-⚠️ **Tap Devices**: Ports create tap devices that are not persistent across reboots.
 
 ## Examples
 
